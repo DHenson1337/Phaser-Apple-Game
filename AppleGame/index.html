@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Apple Catcher</title>
+  </head>
+  <body>
+    <header>
+      <p>Phaser Demo | Apple Catcher</p>
+    </header>
+    <main>
+      <canvas id="gameCanvas"></canvas>
+      <!-- Game Start Div -->
+      <div id="gameStartDiv" class="gameUI">
+        <h1>Apple Catcher</h1>
+        <p>You have 30 seconds to catch the Apples!</p>
+        <p>If you catch more than 30 apples you win</p>
+        <p>If you catch less than 30 apples you lose.</p>
+        <p>Click the start button to begin</p>
+        <button id="gameStartBtn">Start Game!</button>
+      </div>
+
+      <!-- Game End Div -->
+      <div id="gameEndDiv" class="gameUI">
+        <p>Game Over</p>
+        <h1>You <span id="gameWinLoseSpan"></span></h1>
+        <h1>Final Score: <span id="gameEndScoreSpan"></span></h1>
+        <p>Refresh the page (F5) to play again</p>
+      </div>
+    </main>
+    <footer>Created by Davon 2024 🎮</footer>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
