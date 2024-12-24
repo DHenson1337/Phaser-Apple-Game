@@ -54,18 +54,33 @@ class GameScene extends Phaser.Scene {
 
     //Particles
     this.emitter;
+
+    //Apple types and thier properties
+    this.appleTypes = {
+      normal: { key: "apple", points: 1, speed: this.currentSpeed },
+      golden: { key: "goldenApple", points: 4, speed: this.currentSpeed * 1.5 },
+      rotten: {
+        key: "rottenApple",
+        points: -5,
+        speed: this.currentSpeed * 0.8,
+      },
+    };
   } //End of constructor
 
   //Function to preload game assets
   preload() {
     //Images
     this.load.image("bg", "/assets/bg.png");
+    this.load.image("goldenApple", "/assets/goldenApple.png");
+    this.load.image("rottenApple", "assets/rottenApple.png");
     this.load.image("basket", "/assets/basket.png");
     this.load.image("apple", "/assets/apple.png");
     this.load.image("money", "/assets/money.png");
     //Music
     this.load.audio("coin", "/assets/coin.mp3");
     this.load.audio("bgMusic", "/assets/bgMusic.mp3");
+    this.load.audio("negative", "assets/negative.mp3");
+    this.load.audio("gameOver", "assets/gameOver.mp3");
   } //End of preload
 
   //Function to handle our loaded assets
@@ -73,10 +88,11 @@ class GameScene extends Phaser.Scene {
     //Pause the Game (Will start with our Evenet listener)
     this.scene.pause("scene-game");
 
-    //Music
+    //Music/ sounds effects
     this.coinMusic = this.sound.add("coin");
     this.bgMusic = this.sound.add("bgMusic");
     this.bgMusic.play(); //Plays bgm
+    this.negativeSound = this.sound.add("negative");
     // this.bgMusic.stop(); //Stops the bgm
 
     // Player Physics
@@ -130,26 +146,22 @@ class GameScene extends Phaser.Scene {
     //Touch input handlers (for mobile)
     this.input.on("pointerdown", (pointer) => {
       this.isTouchActive = true;
-      this.touchStartX = pointer.x;
     });
 
     this.input.on("pointermove", (pointer) => {
       if (this.isTouchActive) {
-        const deltaX = pointer.x - this.touchStartX;
-        const moveThreshold = 10; // Minimum movment to trigger basket Motion
-
-        if (Math.abs(deltaX) > moveThreshold) {
-          const direction = deltaX > 0 ? 1 : -1;
-          this.player.setVelocityX(direction * this.playerSpeed);
-        } else {
-          this.player.setVelocityX(0);
-        }
-        this.touchStartX = pointer.x; // updates reference point
+        const targetX = pointer.x - this.player.width / 2;
+        const clampedX = Phaser.Math.Clamp(
+          targetX,
+          0,
+          sizes.width - this.player.width
+        );
+        this.player.setX(clampedX);
       }
     });
+
     this.input.on("pointerup", () => {
       this.isTouchActive = false;
-      this.player.setVelocityX(0);
     });
 
     //Score Keeper
@@ -164,7 +176,7 @@ class GameScene extends Phaser.Scene {
       fill: "#000000",
     });
     //Duration of the game
-    this.timedEvent = this.time.delayedCall(30000, this.gameOver, [], this);
+    this.timedEvent = this.time.delayedCall(45000, this.gameOver, [], this);
 
     //Particles
     this.emitter = this.add.particles(0, 0, "money", {
@@ -181,7 +193,37 @@ class GameScene extends Phaser.Scene {
       this.player.height / 2,
       true
     );
+    this.spawnApple();
   } //End of create
+
+  //Spawn rates for the random apples
+  spawnApple() {
+    const rand = Math.random();
+    let type;
+    if (rand < 0.15) {
+      type = "golden";
+    } else if (rand < 0.35) {
+      type = "rotten";
+    } else {
+      type = "normal";
+    }
+    const appleConfig = this.appleTypes[type];
+    this.target.setTexture(appleConfig.key);
+    if (type === "golden") {
+      this.target.setScale(0.01); // Smaller scale for golden apple
+      this.target.body.setSize(740, 740);
+      this.target.body.setOffset(-30, -30);
+    } else if (type === "rotten") {
+      this.target.setScale(0.05); //  scale for rotten apple
+      this.target.body.setSize(720, 720);
+      this.target.body.setOffset(-30, -30);
+    } else {
+      this.target.setScale(1); // Normal apple size
+      this.target.body.setSize(39, 39); //HitBox Size
+    }
+    this.target.appleType = type;
+    this.target.setMaxVelocity(0, appleConfig.speed);
+  }
 
   //Function to update game events, (runs continuously)
   update() {
@@ -195,6 +237,7 @@ class GameScene extends Phaser.Scene {
     if (this.target.y >= sizes.height) {
       this.target.setY(0);
       this.target.setX(this.getRandomX()); //Randomize Apple X location after each fall
+      this.spawnApple(); //Spawns a random Apple
     }
 
     //Setting the player controls (if using keyboard)
@@ -231,28 +274,44 @@ class GameScene extends Phaser.Scene {
 
   //Function to track collision between apple and basket
   targetHit() {
-    this.coinMusic.play(); // Plays coin sound effect when collision triggers
-    this.emitter.start();
+    const appleType = this.target.appleType || "normal";
+    const points = this.appleTypes[appleType].points;
+
+    this.points += points;
+    this.textScore.setText(`Score: ${this.points}`);
+
+    if (points > 0) {
+      this.coinMusic.play();
+      this.emitter.start();
+    } else {
+      this.negativeSound.play();
+      //Red Flash for picking up negative apple
+      this.player.setTint(0xff0000);
+      this.time.delayedCall(300, () => {
+        this.player.clearTint();
+      });
+    }
+
     this.target.setY(0);
     this.target.setX(this.getRandomX());
-    this.points++;
-    this.textScore.setText(`Score: ${this.points}`);
+    this.spawnApple();
   }
 
   //Called when the timer is complete (Aka GameOver lel)
   gameOver() {
-    this.sys.game.destroy(true);
-    console.log("Game Over 🎉");
+    this.sound.play("gameOver");
+    this.time.delayedCall(1500, () => {
+      this.sys.game.destroy(true);
+      gameEndDiv.style.display = "flex";
 
-    if (this.points >= 30) {
-      gameEndScoreSpan.textContent = this.points;
-      gameWinLoseSpan.textContent = "Win! 🎉";
-    } else {
-      gameEndScoreSpan.textContent = this.points;
-      gameWinLoseSpan.textContent = " Lose (╯°□°）╯︵ ┻━┻ \n Game Over";
-    }
-
-    gameEndDiv.style.display = "flex";
+      if (this.points >= 30) {
+        gameEndScoreSpan.textContent = this.points;
+        gameWinLoseSpan.textContent = "Win! 🎉";
+      } else {
+        gameEndScoreSpan.textContent = this.points;
+        gameWinLoseSpan.textContent = " Lose (╯°□°）╯︵ ┻━┻ \n Game Over";
+      }
+    });
   }
 } //End of Game Scene
 
@@ -266,7 +325,7 @@ const config = {
     default: "arcade",
     arcade: {
       gravity: { y: baseSpeedDown },
-      debug: false, //Shows hitboxes
+      debug: true, //Shows hitboxes
     },
   },
   scene: [GameScene],
