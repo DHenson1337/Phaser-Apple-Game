@@ -8,7 +8,10 @@ const sizes = {
 };
 
 //Our Games Overall Speed
-const speedDown = 750;
+const baseSpeedDown = 450; //base speed
+const maxSpeedDown = 1500; //Maximum Fall Speed
+const speedIncreaseInterval = 5000; //To increase the speed every 5 seconds
+const speedIncreaseAmount = 100; // How much Speed increases with each interval
 
 //The html id's
 const gameStartDiv = document.querySelector("#gameStartDiv");
@@ -25,7 +28,7 @@ class GameScene extends Phaser.Scene {
 
     //Setting up player controls
     this.cursor;
-    this.playerSpeed = speedDown + 130; //Speed the player moves
+    this.playerSpeed = baseSpeedDown + 130; //Speed the player moves
 
     //Creation of Apple
     this.target;
@@ -38,6 +41,12 @@ class GameScene extends Phaser.Scene {
     this.textTime;
     this.timedEvent;
     this.remainingTime;
+
+    //Game Speed Elements
+    this.currentSpeed = baseSpeedDown; //Track Current game speed
+    this.speedIncreaseTimer = null; //Timer for speed increases
+    this.isTouchActive = false; //Track if touch is currently active
+    this.touchStartX = 0; //Starting X position of touch
 
     //Music
     this.coinMusic;
@@ -92,7 +101,7 @@ class GameScene extends Phaser.Scene {
 
     //Apple Physics
     this.target = this.physics.add.image(0, 0, "apple").setOrigin(0, 0);
-    this.target.setMaxVelocity(0, speedDown); // Prevents Apple fall speed from exceeding speedDown value
+    this.target.setMaxVelocity(0, baseSpeedDown); // Prevents Apple fall speed from exceeding speedDown value
 
     //Check for overlapping
     this.physics.add.overlap(
@@ -103,11 +112,44 @@ class GameScene extends Phaser.Scene {
       this
     );
 
+    //Setup speed increase timer
+    this.speedIncreaseTimer = this.time.addEvent({
+      delay: speedIncreaseInterval,
+      callback: this.increaseSpeed,
+      callbackScope: this,
+      loop: true,
+    });
+
     //Creating the player controls
     this.cursor = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys({
       A: Phaser.Input.Keyboard.KeyCodes.A,
       D: Phaser.Input.Keyboard.KeyCodes.D,
+    });
+
+    //Touch input handlers (for mobile)
+    this.input.on("pointerdown", (pointer) => {
+      this.isTouchActive = true;
+      this.touchStartX = pointer.x;
+    });
+
+    this.input.on("pointermove", (pointer) => {
+      if (this.isTouchActive) {
+        const deltaX = pointer.x - this.touchStartX;
+        const moveThreshold = 10; // Minimum movment to trigger basket Motion
+
+        if (Math.abs(deltaX) > moveThreshold) {
+          const direction = deltaX > 0 ? 1 : -1;
+          this.player.setVelocityX(direction * this.playerSpeed);
+        } else {
+          this.player.setVelocityX(0);
+        }
+        this.touchStartX = pointer.x; // updates reference point
+      }
+    });
+    this.input.on("pointerup", () => {
+      this.isTouchActive = false;
+      this.player.setVelocityX(0);
     });
 
     //Score Keeper
@@ -127,7 +169,7 @@ class GameScene extends Phaser.Scene {
     //Particles
     this.emitter = this.add.particles(0, 0, "money", {
       speed: 100,
-      gravityY: speedDown - 200,
+      gravityY: baseSpeedDown - 200,
       scale: 0.04,
       duration: 100,
       emitting: false, // Set to false, so we can active it when we want in another function
@@ -155,18 +197,32 @@ class GameScene extends Phaser.Scene {
       this.target.setX(this.getRandomX()); //Randomize Apple X location after each fall
     }
 
-    //Setting the player controls
-    const { left, right } = this.cursor;
-    const { A, D } = this.keys;
+    //Setting the player controls (if using keyboard)
+    if (!this.isTouchActive) {
+      const { left, right } = this.cursor;
+      const { A, D } = this.keys;
 
-    if (left.isDown || A.isDown) {
-      this.player.setVelocityX(-this.playerSpeed);
-    } else if (right.isDown || D.isDown) {
-      this.player.setVelocityX(this.playerSpeed);
-    } else {
-      this.player.setVelocityX(0);
+      if (left.isDown || A.isDown) {
+        this.player.setVelocityX(-this.playerSpeed);
+      } else if (right.isDown || D.isDown) {
+        this.player.setVelocityX(this.playerSpeed);
+      } else {
+        this.player.setVelocityX(0);
+      }
     }
   } //End of Update
+
+  //Handles Apple Speed Increase
+  increaseSpeed() {
+    if (this.currentSpeed < maxSpeedDown) {
+      this.currentSpeed += speedIncreaseAmount;
+      //update physics gravity
+      this.physics.world.gravity.y = this.currentSpeed;
+      //update apple max velocity
+      this.target.setMaxVelocity(0, this.currentSpeed);
+      console.log(`Speed increased to: ${this.currentSpeed}`);
+    }
+  }
 
   //Function to randomize the X value
   getRandomX() {
@@ -209,11 +265,14 @@ const config = {
   physics: {
     default: "arcade",
     arcade: {
-      gravity: { y: speedDown },
+      gravity: { y: baseSpeedDown },
       debug: false, //Shows hitboxes
     },
   },
   scene: [GameScene],
+  input: {
+    touch: true, // Enable touch input
+  },
 };
 
 const game = new Phaser.Game(config);
