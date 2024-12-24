@@ -36,6 +36,7 @@ class GameScene extends Phaser.Scene {
     //Score tracker
     this.points = 0;
     this.textScore;
+    this.highScore = localStorage.getItem("appleHighScore") || 0;
 
     //Time Keeper
     this.textTime;
@@ -77,10 +78,11 @@ class GameScene extends Phaser.Scene {
     this.load.image("apple", "/assets/apple.png");
     this.load.image("money", "/assets/money.png");
     //Music
-    this.load.audio("coin", "/assets/coin.mp3");
+    this.load.audio("coin", "/assets/coin.wav");
     this.load.audio("bgMusic", "/assets/bgMusic.mp3");
     this.load.audio("negative", "assets/negative.mp3");
     this.load.audio("gameOver", "assets/gameOver.mp3");
+    this.load.audio("victory", "/assets/victory.wav");
   } //End of preload
 
   //Function to handle our loaded assets
@@ -175,6 +177,18 @@ class GameScene extends Phaser.Scene {
       font: "25px Arial",
       fill: "#000000",
     });
+
+    //HighScore tracker
+    this.highScoreText = this.add.text(
+      10,
+      40,
+      `High Score: ${this.highScore}`,
+      {
+        font: "25px Arial",
+        fill: "FFD700",
+      }
+    );
+
     //Duration of the game
     this.timedEvent = this.time.delayedCall(45000, this.gameOver, [], this);
 
@@ -211,7 +225,7 @@ class GameScene extends Phaser.Scene {
     this.target.setTexture(appleConfig.key);
     if (type === "golden") {
       this.target.setScale(0.01); // Smaller scale for golden apple
-      this.target.body.setSize(740, 740);
+      this.target.body.setSize(780, 780);
       this.target.body.setOffset(-30, -30);
     } else if (type === "rotten") {
       this.target.setScale(0.05); //  scale for rotten apple
@@ -299,7 +313,18 @@ class GameScene extends Phaser.Scene {
 
   //Called when the timer is complete (Aka GameOver lel)
   gameOver() {
-    this.sound.play("gameOver");
+    if (this.points >= 30) {
+      this.sound.play("victory"); //  victory sound
+    } else {
+      this.sound.play("gameOver");
+    }
+
+    //HighScore Checker
+    if (this.points > this.highScore) {
+      this.highScore = this.points;
+      localStorage.setItem("appleHighScore", this.points);
+    }
+
     this.time.delayedCall(1500, () => {
       this.sys.game.destroy(true);
       gameEndDiv.style.display = "flex";
@@ -325,7 +350,7 @@ const config = {
     default: "arcade",
     arcade: {
       gravity: { y: baseSpeedDown },
-      debug: true, //Shows hitboxes
+      debug: false, //Shows hitboxes
     },
   },
   scene: [GameScene],
