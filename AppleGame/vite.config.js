@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  base: "./", // Change from '/' to './' for relative paths
+  base: "", // Remove ./ to use an empty string
   build: {
     outDir: "dist",
     assetsDir: "assets",
@@ -11,6 +11,5 @@ export default defineConfig({
       },
     },
   },
-  // Add this to ensure public directory is handled correctly
   publicDir: "public",
 });
